@@ -30,12 +30,20 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const bookCollection = client.db("i-library").collection("books");
+    const reviewCollection = client.db("i-library").collection("reviews");
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
     app.get("/books", async (req, res) => {
       const books = await bookCollection.find().toArray();
       res.send(books);
+    });
+
+    app.get("/reviews/:email", async(req, res) => {
+      const email = req.params.email;
+      const query = { email: email};
+      const reviews = await reviewCollection.find(query).toArray();
+      res.send(reviews);
     });
 
     // Send a ping to confirm a successful connection
