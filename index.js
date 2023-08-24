@@ -32,7 +32,7 @@ async function run() {
     const bookCollection = client.db("i-library").collection("books");
     const reviewCollection = client.db("i-library").collection("reviews");
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     app.get("/books", async (req, res) => {
       const books = await bookCollection.find().toArray();
