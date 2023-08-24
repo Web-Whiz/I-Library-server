@@ -31,6 +31,9 @@ async function run() {
   try {
     const bookCollection = client.db("i-library").collection("books");
     const requestedBooks = client.db("i-library").collection("requested-books");
+    const cartsCollection = client.db("i-library").collection("carts");
+    const wishListCollection = client.db("i-library").collection("wishList");
+
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
@@ -53,6 +56,87 @@ async function run() {
       const result = await requestedBooks.insertOne(book);
       res.send(result);
     });
+
+
+
+    // route for get Popular Books
+    app.get('/popular-books', async (req, res) => {
+      const sort = { total_read: -1 }
+      // const query = { status: 'approved' }
+      const result = await bookCollection.find().sort(sort).limit(12).toArray()
+      res.send(result);
+
+    })
+
+
+
+    // cart related api 
+    // route for get Cart data
+    app.get('/carts', async (req, res) => {
+      const { email } = req.query;
+      const query = { userEmail: email }
+      const result = await cartsCollection.find(query).toArray()
+      res.send(result);
+
+    })
+
+    //api for add items in cart
+    app.post('/carts', async (req, res) => {
+      const cart = req.body;
+      // console.log(cart)
+      const query = { userEmail: cart.userEmail, bookId: cart.bookId }
+      const alreadyAdded = await cartsCollection.findOne(query);
+      if (alreadyAdded) {
+        return res.send({ message: 'already added' })
+      }
+      const result = await cartsCollection.insertOne(cart);
+      res.send(result);
+    });
+
+
+    //api for DELETE items from cart
+    app.delete('/carts', async (req, res) => {
+      const cart = req.body;
+      // console.log(cart)
+      const query = { userEmail: cart.userEmail, bookId: cart.bookId }
+      const result = await cartsCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    
+
+    // wish list related api 
+    //api for add items in wish list
+    app.post('/wish-list', async (req, res) => {
+      const wishList = req.body;
+      // console.log(wishList)
+      const query = { userEmail: wishList.userEmail, bookId: wishList.bookId }
+      const alreadyAdded = await wishListCollection.findOne(query);
+      if (alreadyAdded) {
+        return res.send({ message: 'already added' })
+      }
+      const result = await wishListCollection.insertOne(wishList);
+      res.send(result);
+    });
+
+    // route for get wish list data
+    app.get('/wish-list', async (req, res) => {
+      const { email } = req.query;
+      const query = { userEmail: email }
+      const result = await wishListCollection.find(query).toArray()
+      res.send(result);
+
+    })
+
+    //api for DELETE items from wish list
+    app.delete('/wish-list', async (req, res) => {
+      const wishList = req.body;
+      // console.log(wishList)
+      const query = { userEmail: wishList.userEmail, bookId: wishList.bookId }
+      const result = await wishListCollection.deleteOne(query);
+      res.send(result);
+    });
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
