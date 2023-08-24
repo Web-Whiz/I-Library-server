@@ -5,8 +5,8 @@ require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Set the environment variable to disable saslprep warnings
-process.env.MONGOMS_DISABLE_SASLPREP = "1";
+// Set the environment variable to specify the saslprep library
+process.env.SASL_PREP_LIB = require.resolve('saslprep');  
 
 // middleware
 app.use(cors());
@@ -30,12 +30,28 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const bookCollection = client.db("i-library").collection("books");
+    const requestedBooks = client.db("i-library").collection("requested-books");
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
     app.get("/books", async (req, res) => {
       const books = await bookCollection.find().toArray();
       res.send(books);
+    });
+
+    // requested books
+    app.get("/requested-books", async (req, res) => {
+      const email = req.query.email;
+      const filter = {
+        userEmail: email,
+      };
+      const result = await requestedBooks.find(filter ).toArray();
+      res.send(result);
+    });
+    app.post("/requested-books", async (req, res) => {
+      const book = req.body;
+      const result = await requestedBooks.insertOne(book);
+      res.send(result);
     });
 
     // Send a ping to confirm a successful connection
