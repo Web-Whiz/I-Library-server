@@ -52,6 +52,13 @@ async function run() {
 
     })
 
+    // route for get new Books
+    app.get('/new-books', async (req, res) => {
+      const sort = { added_date: -1 }
+      const result = await bookCollection.find().sort(sort).limit(12).toArray()
+      res.send(result);
+    })
+
 
 
     // cart related api 
@@ -87,7 +94,7 @@ async function run() {
       res.send(result);
     });
 
-    
+
 
     // wish list related api 
     //api for add items in wish list
