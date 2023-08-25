@@ -67,6 +67,15 @@ async function run() {
     });
 
     // cart related api
+
+    // route for get new Books
+    app.get("/new-books", async (req, res) => {
+      const sort = { added_date: -1 };
+      const result = await bookCollection.find().sort(sort).limit(12).toArray();
+      res.send(result);
+    });
+
+    // cart related api
     // route for get Cart data
     app.get("/carts", async (req, res) => {
       const { email } = req.query;
@@ -96,6 +105,8 @@ async function run() {
       const result = await cartsCollection.deleteOne(query);
       res.send(result);
     });
+
+    // wish list related api
 
     // wish list related api
     //api for add items in wish list
