@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -30,16 +30,38 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const bookCollection = client.db("i-library").collection("books");
+    const userCollection = client.db("i-library").collection("users");
     const requestedBooks = client.db("i-library").collection("requested-books");
     const cartsCollection = client.db("i-library").collection("carts");
     const wishListCollection = client.db("i-library").collection("wishList");
+    const donatedBooks = client.db("i-library").collection("donated-books");
 
     const reviewCollection = client.db("i-library").collection("reviews");
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
+    // user api
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+
+      if (existingUser) {
+        return res.send({ message: "user already exists" });
+      }
+      const result = await userCollection.insertOne(user);
+      return res.send(result);
+    });
+    // book api
     app.get("/books", async (req, res) => {
       const books = await bookCollection.find().toArray();
+      res.send(books);
+    });
+    app.get("/book/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const books = await bookCollection.findOne(query);
       res.send(books);
     });
 
@@ -55,6 +77,20 @@ async function run() {
     app.post("/requested-books", async (req, res) => {
       const book = req.body;
       const result = await requestedBooks.insertOne(book);
+      res.send(result);
+    });
+    // doanted books
+    app.get("/donated-books", async (req, res) => {
+      const email = req.query.email;
+      const filter = {
+        userEmail: email,
+      };
+      const result = await donatedBooks.find(filter).toArray();
+      res.send(result);
+    });
+    app.post("/donated-books", async (req, res) => {
+      const book = req.body;
+      const result = await donatedBooks.insertOne(book);
       res.send(result);
     });
 
