@@ -3,7 +3,7 @@ const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
-const SSLCommerzPayment = require('sslcommerz-lts')
+const SSLCommerzPayment = require("sslcommerz-lts");
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -13,7 +13,6 @@ process.env.MONGOMS_DISABLE_SASLPREP = "1";
 // middleware
 app.use(cors());
 app.use(express.json());
-
 
 app.get("/", (req, res) => {
   res.send("Welcome to the I Library!!");
@@ -30,10 +29,9 @@ const client = new MongoClient(uri, {
   },
 });
 
-
-const store_id = process.env.STORE_ID
-const store_passwd = process.env.STORE_PASSWORD
-const is_live = false //true for live, false for sandbox
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASSWORD;
+const is_live = false; //true for live, false for sandbox
 
 async function run() {
   try {
@@ -41,6 +39,7 @@ async function run() {
     const cartsCollection = client.db("i-library").collection("carts");
     const wishListCollection = client.db("i-library").collection("wishList");
     const ordersCollection = client.db("i-library").collection("orders");
+    const usersCollection = client.db("i-library").collection("users");
 
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
@@ -52,18 +51,17 @@ async function run() {
 
 
 
-
     //payment Route
-    app.post('/order', async (req, res) => {
-      console.log(req.body)
+    app.post("/order", async (req, res) => {
+      console.log(req.body);
 
-      const mail = "muhammadformaanali@gmail.com"
+      const mail = "muhammadformaanali@gmail.com";
 
-      const result = await cartsCollection.find({ userEmail: mail }).toArray()
-      console.log(result)
+      const result = await cartsCollection.find({ userEmail: mail }).toArray();
+      console.log(result);
 
       const orderedBooks = result.map((book) => {
-        const { bookId, title,author,image_url } = book;
+        const { bookId, title, author, image_url } = book;
         const orderedItem = {
           title,
           bookId,
@@ -73,190 +71,174 @@ async function run() {
         return orderedItem;
       });
       console.log(orderedBooks);
-      const tran_id = new ObjectId().toString()
-
-
-      // const order = {mail,orderedBooks}
-
-
+      const tran_id = new ObjectId().toString();
 
       const data = {
         total_amount: 100,
-        currency: 'BDT',
+        currency: "BDT",
         tran_id: tran_id, // use unique tran_id for each api call
         success_url: `http://localhost:5000/payment/success/${tran_id}`,
         fail_url: `http://localhost:5000/payment/failed/${tran_id}`,
-        cancel_url: 'http://localhost:3030/cancel',
-        ipn_url: 'http://localhost:3030/ipn',
-        shipping_method: 'Courier',
-        product_name: 'Computer.',
-        product_category: 'Electronic',
-        product_profile: 'general',
-        cus_name: 'Customer Name',
-        cus_email: 'customer@example.com',
-        cus_add1: 'Dhaka',
-        cus_add2: 'Dhaka',
-        cus_city: 'Dhaka',
-        cus_state: 'Dhaka',
-        cus_postcode: '1000',
-        cus_country: 'Bangladesh',
-        cus_phone: '01711111111',
-        cus_fax: '01711111111',
-        ship_name: 'Customer Name',
-        ship_add1: 'Dhaka',
-        ship_add2: 'Dhaka',
-        ship_city: 'Dhaka',
-        ship_state: 'Dhaka',
+        cancel_url: "http://localhost:3030/cancel",
+        ipn_url: "http://localhost:3030/ipn",
+        shipping_method: "Courier",
+        product_name: "Computer.",
+        product_category: "Electronic",
+        product_profile: "general",
+        cus_name: "Customer Name",
+        cus_email: "customer@example.com",
+        cus_add1: "Dhaka",
+        cus_add2: "Dhaka",
+        cus_city: "Dhaka",
+        cus_state: "Dhaka",
+        cus_postcode: "1000",
+        cus_country: "Bangladesh",
+        cus_phone: "01711111111",
+        cus_fax: "01711111111",
+        ship_name: "Customer Name",
+        ship_add1: "Dhaka",
+        ship_add2: "Dhaka",
+        ship_city: "Dhaka",
+        ship_state: "Dhaka",
         ship_postcode: 1000,
-        ship_country: 'Bangladesh',
+        ship_country: "Bangladesh",
       };
 
       // console.log(data)
 
-      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
-      sslcz.init(data).then(apiResponse => {
+      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+      sslcz.init(data).then((apiResponse) => {
         // Redirect the user to payment gateway
-        let GatewayPageURL = apiResponse.GatewayPageURL
-        res.send({ url: GatewayPageURL })
+        let GatewayPageURL = apiResponse.GatewayPageURL;
+        res.send({ url: GatewayPageURL });
 
         const finalOrder = {
           mail,
           orderedBooks,
-          paidStatus: 'unpaid',
-          transactionId: tran_id
-        }
+          paidStatus: "unpaid",
+          transactionId: tran_id,
+        };
 
-        const result = ordersCollection.insertOne(finalOrder)
-        console.log('Redirecting to: ', GatewayPageURL)
-
+        const result = ordersCollection.insertOne(finalOrder);
+        console.log("Redirecting to: ", GatewayPageURL);
       });
 
-      app.post('/payment/success/:tranId', async (req, res) => {
+      app.post("/payment/success/:tranId", async (req, res) => {
         // console.log(req.params.tranId)
         const result = await ordersCollection.updateOne(
           { transactionId: req.params.tranId },
           {
             $set: {
-              paidStatus: 'paid'
+              paidStatus: "paid",
             },
           }
         );
         if (result.modifiedCount > 0) {
-          const deleteCart = await cartsCollection.deleteMany({userEmail:mail})
-          res.redirect('http://localhost:3000/dashboard/cart/payment-success')
+          const deleteCart = await cartsCollection.deleteMany({
+            userEmail: mail,
+          });
+          res.redirect("http://localhost:3000/dashboard/cart/payment-success");
         }
       });
 
-
-      app.post('/payment/failed/:tranId', async (req, res) => {
+      app.post("/payment/failed/:tranId", async (req, res) => {
         // console.log(req.params.tranId)
-        const result = await ordersCollection.deleteOne({ transactionId: req.params.tranId });
+        const result = await ordersCollection.deleteOne({
+          transactionId: req.params.tranId,
+        });
         if (result.deletedCount > 0) {
-          res.redirect('http://localhost:3000/dashboard/cart/payment-failed')
+          res.redirect("http://localhost:3000/dashboard/cart/payment-failed");
         }
-      })
-
-
-
-
+      });
     });
 
 
 
 
-
-
-
-
-
+    // route for get all users data 
+    app.get("/users", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
 
 
 
     // route for get Popular Books
-    app.get('/popular-books', async (req, res) => {
-      const sort = { total_read: -1 }
+    app.get("/popular-books", async (req, res) => {
+      const sort = { total_read: -1 };
       // const query = { status: 'approved' }
-      const result = await bookCollection.find().sort(sort).limit(12).toArray()
+      const result = await bookCollection.find().sort(sort).limit(12).toArray();
       res.send(result);
-
-    })
+    });
 
     // route for get new Books
-    app.get('/new-books', async (req, res) => {
-      const sort = { added_date: -1 }
-      const result = await bookCollection.find().sort(sort).limit(12).toArray()
+    app.get("/new-books", async (req, res) => {
+      const sort = { added_date: -1 };
+      const result = await bookCollection.find().sort(sort).limit(12).toArray();
       res.send(result);
-    })
+    });
 
-
-
-    // cart related api 
+    // cart related api
     // route for get Cart data
-    app.get('/carts', async (req, res) => {
+    app.get("/carts", async (req, res) => {
       const { email } = req.query;
-      const query = { userEmail: email }
-      const result = await cartsCollection.find(query).toArray()
+      const query = { userEmail: email };
+      const result = await cartsCollection.find(query).toArray();
       res.send(result);
-
-    })
+    });
 
     //api for add items in cart
-    app.post('/carts', async (req, res) => {
+    app.post("/carts", async (req, res) => {
       const cart = req.body;
       // console.log(cart)
-      const query = { userEmail: cart.userEmail, bookId: cart.bookId }
+      const query = { userEmail: cart.userEmail, bookId: cart.bookId };
       const alreadyAdded = await cartsCollection.findOne(query);
       if (alreadyAdded) {
-        return res.send({ message: 'already added' })
+        return res.send({ message: "already added" });
       }
       const result = await cartsCollection.insertOne(cart);
       res.send(result);
     });
 
-
     //api for DELETE items from cart
-    app.delete('/carts', async (req, res) => {
+    app.delete("/carts", async (req, res) => {
       const cart = req.body;
       // console.log(cart)
-      const query = { userEmail: cart.userEmail, bookId: cart.bookId }
+      const query = { userEmail: cart.userEmail, bookId: cart.bookId };
       const result = await cartsCollection.deleteOne(query);
       res.send(result);
     });
 
-
-
-    // wish list related api 
+    // wish list related api
     //api for add items in wish list
-    app.post('/wish-list', async (req, res) => {
+    app.post("/wish-list", async (req, res) => {
       const wishList = req.body;
       // console.log(wishList)
-      const query = { userEmail: wishList.userEmail, bookId: wishList.bookId }
+      const query = { userEmail: wishList.userEmail, bookId: wishList.bookId };
       const alreadyAdded = await wishListCollection.findOne(query);
       if (alreadyAdded) {
-        return res.send({ message: 'already added' })
+        return res.send({ message: "already added" });
       }
       const result = await wishListCollection.insertOne(wishList);
       res.send(result);
     });
 
     // route for get wish list data
-    app.get('/wish-list', async (req, res) => {
+    app.get("/wish-list", async (req, res) => {
       const { email } = req.query;
-      const query = { userEmail: email }
-      const result = await wishListCollection.find(query).toArray()
-      res.send(result);
-
-    })
-
-    //api for DELETE items from wish list
-    app.delete('/wish-list', async (req, res) => {
-      const wishList = req.body;
-      // console.log(wishList)
-      const query = { userEmail: wishList.userEmail, bookId: wishList.bookId }
-      const result = await wishListCollection.deleteOne(query);
+      const query = { userEmail: email };
+      const result = await wishListCollection.find(query).toArray();
       res.send(result);
     });
 
+    //api for DELETE items from wish list
+    app.delete("/wish-list", async (req, res) => {
+      const wishList = req.body;
+      // console.log(wishList)
+      const query = { userEmail: wishList.userEmail, bookId: wishList.bookId };
+      const result = await wishListCollection.deleteOne(query);
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
