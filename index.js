@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -32,18 +32,81 @@ async function run() {
     const bookCollection = client.db("i-library").collection("books");
    
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     app.get("/books", async (req, res) => {
       const books = await bookCollection.find().toArray();
       res.send(books);
     });
 
+    // ------------------searchText-----------------------//
     app.post("/books", async (req, res) => {
       const Addededbook=req.body
       const result = await bookCollection.insertOne(Addededbook)
       res.send(result);
     });
+
+    // ------------------searchText-----------------------//
+    const indexKeys = { title: 1 };
+    const indexOptions = { name: "titlesearch" };
+    const result = await bookCollection.createIndex(indexKeys,indexOptions );
+
+    app.get("/books/:text", async (req, res) => {
+      const searchText = req.params.text;
+      const result = await bookCollection
+        .find({
+          $or: [{ title: { $regex: searchText, $options: "i" } }],
+        })
+        .toArray();
+      res.send(result);
+    });
+
+// ------------------Update-----------------------//
+
+    app.put("/books/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const filter = { _id: new ObjectId(id) }
+      const option = { upsert: true }
+      const Clientdata=req.body;
+      console.log(Clientdata);
+      const updatetoydata ={
+          $set:{
+              title:Clientdata.title,
+              author:Clientdata.author,
+              translator:Clientdata.translator,
+              publisher:Clientdata.publisher,
+              shelf:Clientdata.shelf,
+              image_url:Clientdata.image_url,
+              edition:Clientdata.edition,
+              published_in:Clientdata.published_in,
+              category:Clientdata.category,
+              number_of_pages:Clientdata.number_of_pages,
+              language:Clientdata.language,
+              country:Clientdata.country,
+              ratings:Clientdata.ratings,
+              total_read:Clientdata.total_read,
+              added_date:Clientdata.added_date,
+              hard_copy:Clientdata.hard_copy,
+              pdf:Clientdata.pdf,
+              ebook:Clientdata.ebook,
+              pdf_link:Clientdata.pdf_link,
+           
+
+          }
+        }
+      const result = await bookCollection.updateOne(filter,updatetoydata,option)
+      res.send(result)
+  })
+
+
+// ------------------Delete-----------------------//
+    app.delete('/books/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await bookCollection.deleteOne(query)
+      res.send(result)
+  })
 
 
 
