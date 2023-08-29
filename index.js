@@ -36,7 +36,7 @@ async function run() {
 
     const reviewCollection = client.db("i-library").collection("reviews");
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     app.get("/books", async (req, res) => {
       const books = await bookCollection.find().toArray();
@@ -139,12 +139,45 @@ async function run() {
       res.send(result);
     });
 
+    // Ratings & Reviews Related API
+    app.get("/review/:id", async(req, res) => {
+      const id = req.params.id;
+      const filter = { "book-id" : id };
+      const reviews = await reviewCollection.find(filter).toArray();
+      res.send(reviews);
+    })
+
     app.get("/reviews/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const reviews = await reviewCollection.find(query).toArray();
       res.send(reviews);
     });
+
+    app.post('/reviews', async (req, res) => {
+      const { username, rating, review, date, bookTitle, bookImg, bookId, email } = req.body;
+      // console.log(req.body);
+
+      try {
+          // Insert the new review
+          await reviewCollection.insertOne({
+            username,
+            rating,
+            review,
+            date,
+            "book-name": bookTitle,
+          "book-img": bookImg,
+          "book-id": bookId,
+            email
+          });
+          console.log('Review inserted successfully');
+
+          res.status(201).json({ message: 'Review submitted successfully!' });
+      } catch (error) {
+          console.error('Error:', error);
+          res.status(500).json({ message: 'Failed to submit review.' });
+      }
+  });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
