@@ -64,6 +64,130 @@ async function run() {
       const books = await bookCollection.findOne(query);
       res.send(books);
     });
+    app.get("/books/category", async (req, res) => {
+      try {
+        const projection = {
+          category: 1,
+        };
+        const result = await bookCollection
+          .find()
+          .project(projection)
+          .toArray();
+
+        const uniqueCategories = [
+          ...new Set(result.map((book) => book.category)),
+        ];
+
+        const categoryCounts = uniqueCategories.map((category) => {
+          const count = result.filter(
+            (book) => book.category === category
+          ).length;
+          return {
+            category,
+            count,
+          };
+        });
+
+        res.send(categoryCounts);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send("An error occurred.");
+      }
+    });
+    app.get("/books/author", async (req, res) => {
+      try {
+        const projection = {
+          author: 1,
+        };
+        const result = await bookCollection
+          .find()
+          .project(projection)
+          .toArray();
+
+        const uniqueAuthor = [...new Set(result.map((book) => book.author))];
+
+        const authorCounts = uniqueAuthor.map((author) => {
+          const count = result.filter((book) => book.author === author).length;
+          return {
+            author,
+            count,
+          };
+        });
+
+        res.send(authorCounts);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send("An error occurred.");
+      }
+    });
+    app.get("/books/publisher", async (req, res) => {
+      try {
+        const projection = {
+          publisher: 1,
+        };
+        const result = await bookCollection
+          .find()
+          .project(projection)
+          .toArray();
+
+        const uniquePublisher = [
+          ...new Set(result.map((book) => book.publisher)),
+        ];
+
+        const publisherCounts = uniquePublisher.map((publisher) => {
+          const count = result.filter(
+            (book) => book.publisher === publisher
+          ).length;
+          return {
+            publisher,
+            count,
+          };
+        });
+
+        res.send(publisherCounts);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send("An error occurred.");
+      }
+    });
+
+    app.get("/books/category-filter", async (req, res) => {
+      const categoryNames = req.query.categories.split(","); // Split categories by comma
+      const query = { category: { $in: categoryNames } };
+
+      try {
+        const books = await bookCollection.find(query).toArray();
+        res.send(books);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send("An error occurred.");
+      }
+    });
+
+    app.get("/books/author/:authorName", async (req, res) => {
+      const authorName = req.params.authorName;
+      const query = { author: authorName };
+
+      try {
+        const books = await bookCollection.find(query).toArray();
+        res.send(books);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send("An error occurred.");
+      }
+    });
+    app.get("/books/publisher/:publisherName", async (req, res) => {
+      const publisherName = req.params.publisherName;
+      const query = { publisher: publisherName };
+
+      try {
+        const books = await bookCollection.find(query).toArray();
+        res.send(books);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send("An error occurred.");
+      }
+    });
 
     // requested books
     app.get("/requested-books", async (req, res) => {
