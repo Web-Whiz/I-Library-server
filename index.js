@@ -35,7 +35,9 @@ async function run() {
     const cartsCollection = client.db("i-library").collection("carts");
     const wishListCollection = client.db("i-library").collection("wishList");
     const donatedBooks = client.db("i-library").collection("donated-books");
-
+    const allBlogsCollection = client
+      .db("i-library")
+      .collection("allBlogsCollection");
     const reviewCollection = client.db("i-library").collection("reviews");
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
@@ -304,6 +306,20 @@ async function run() {
       const query = { email: email };
       const reviews = await reviewCollection.find(query).toArray();
       res.send(reviews);
+    });
+
+    app.get("/blogs", async (req, res) => {
+      const page = parseInt(req.query.page);
+      const limit = parseInt(req.query.limit);
+      const skip = page * limit;
+      const result1 = await allBlogsCollection
+        .find()
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+      const result2 = await allBlogsCollection.estimatedDocumentCount();
+
+      res.send([result1, result2]);
     });
 
     // Send a ping to confirm a successful connection
