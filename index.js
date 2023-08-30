@@ -32,11 +32,31 @@ async function run() {
     const bookCollection = client.db("i-library").collection("books");
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+    const allBlogsCollection = client
+      .db("i-library")
+      .collection("allBlogsCollection");
+    // Connect the client to the server	(optional starting in v4.7)
+    await client.connect();
 
     app.get("/books", async (req, res) => {
       const books = await bookCollection.find().toArray();
       res.send(books);
     });
+
+    app.get("/blogs", async (req, res) => {
+      const page = parseInt(req.query.page);
+      const limit = parseInt(req.query.limit);
+      const skip = page * limit;
+      const result1 = await allBlogsCollection
+        .find()
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+      const result2 = await allBlogsCollection.estimatedDocumentCount();
+
+      res.send([result1, result2]);
+    });
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
