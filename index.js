@@ -63,29 +63,26 @@ async function run() {
 
 // ------------------Update-----------------------//
 
-    app.put("/books/:id", async (req, res) => {
+    app.patch("/books/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
-      const filter = { _id: new ObjectId(id) }
-      const option = { upsert: true }
       const Clientdata=req.body;
-      console.log(Clientdata);
+      const filter = { _id: new ObjectId(id) }
       const updatetoydata ={
           $set:{
               title:Clientdata.title,
               author:Clientdata.author,
-              translator:Clientdata.translator,
+              translator:Clientdata.translator || null,
               publisher:Clientdata.publisher,
-              shelf:Clientdata.shelf,
+              shelf:parseFloat(Clientdata.shelf),
               image_url:Clientdata.image_url,
               edition:Clientdata.edition,
-              published_in:Clientdata.published_in,
+              published_in:parseFloat(Clientdata.published_in),
               category:Clientdata.category,
-              number_of_pages:Clientdata.number_of_pages,
+              number_of_pages:parseFloat(Clientdata.number_of_pages),
               language:Clientdata.language,
               country:Clientdata.country,
-              ratings:Clientdata.ratings,
-              total_read:Clientdata.total_read,
+              // ratings:Clientdata.ratings,
+              // total_read:Clientdata.total_read,
               added_date:Clientdata.added_date,
               hard_copy:Clientdata.hard_copy,
               pdf:Clientdata.pdf,
@@ -95,7 +92,7 @@ async function run() {
 
           }
         }
-      const result = await bookCollection.updateOne(filter,updatetoydata,option)
+      const result = await bookCollection.updateOne(filter,updatetoydata)
       res.send(result)
   })
 
