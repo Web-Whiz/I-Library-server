@@ -49,9 +49,8 @@ async function run() {
       res.send(books);
     });
 
-
-
     //payment Route
+    // ToDo: have to receive data from front-end
     app.post("/order", async (req, res) => {
       console.log(req.body);
 
@@ -152,14 +151,70 @@ async function run() {
       });
     });
 
-
-
-
-    // route for get all users data 
+    // route for get all users data
     app.get("/users", async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
+
+
+
+    // Route for update user role
+    app.put("/users/update-role/:userId", async (req, res) => {
+      const { userId } = req.params;
+      const { updatedRole } = req.body;
+      console.log(userId, updatedRole);
+      const query = { _id: new ObjectId(userId) };
+      const option = { upsert: true };
+      const updateOperation = {
+        $set: { role: updatedRole },
+      };
+      const updateResult = await usersCollection.updateOne(
+        query,
+        updateOperation,
+        option
+      );
+      res.send(updateResult);
+    });
+
+
+    // Route for update status 
+    app.put("/users/update-status/:userId", async (req, res) => {
+      const { userId } = req.params;
+      const { updatedStatus } = req.body;
+      console.log(userId, updatedStatus);
+      const query = { _id: new ObjectId(userId) };
+      const option = { upsert: true };
+      const updateOperation = {
+        $set: { status: updatedStatus },
+      };
+      const updateResult = await usersCollection.updateOne(
+        query,
+        updateOperation,
+        option
+      );
+      res.send(updateResult);
+    });
+
+
+    // route for warning 
+    app.put("/users/warning/:userId", async (req, res) => {
+      const { userId } = req.params;
+      const { warning } = req.body;
+      console.log(userId, );
+      const query = { _id: new ObjectId(userId) };
+      const option = { upsert: true };
+      const updateOperation = {
+        $set: { warning: warning },
+      };
+      const updateResult = await usersCollection.updateOne(
+        query,
+        updateOperation,
+        option
+      );
+      res.send(updateResult);
+    });
+
 
 
 
