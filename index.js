@@ -48,6 +48,9 @@ async function run() {
     const QACollection = client.db("i-library").collection("qa");
     const ordersCollection = client.db("i-library").collection("orders");
     const usersCollection = client.db("i-library").collection("users");
+   
+    // Connect the client to the server	(optional starting in v4.7)
+    // await client.connect();
 
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
@@ -563,6 +566,74 @@ async function run() {
       const result = await wishListCollection.deleteOne(query);
       res.send(result);
     });
+
+    // ------------------searchText-----------------------//
+    app.post("/books", async (req, res) => {
+      const Addededbook=req.body
+      const result = await bookCollection.insertOne(Addededbook)
+      res.send(result);
+    });
+
+    // ------------------searchText-----------------------//
+    const indexKeys = { title: 1 };
+    const indexOptions = { name: "titlesearch" };
+    const result = await bookCollection.createIndex(indexKeys,indexOptions );
+
+    app.get("/books/:text", async (req, res) => {
+      const searchText = req.params.text;
+      const result = await bookCollection
+        .find({
+          $or: [{ title: { $regex: searchText, $options: "i" } }],
+        })
+        .toArray();
+      res.send(result);
+    });
+
+// ------------------Update-----------------------//
+
+    app.patch("/books/:id", async (req, res) => {
+      const id = req.params.id;
+      const Clientdata=req.body;
+      const filter = { _id: new ObjectId(id) }
+      const updatetoydata ={
+          $set:{
+              title:Clientdata.title,
+              author:Clientdata.author,
+              translator:Clientdata.translator || null,
+              publisher:Clientdata.publisher,
+              shelf:parseFloat(Clientdata.shelf),
+              image_url:Clientdata.image_url,
+              edition:Clientdata.edition,
+              published_in:parseFloat(Clientdata.published_in),
+              category:Clientdata.category,
+              number_of_pages:parseFloat(Clientdata.number_of_pages),
+              language:Clientdata.language,
+              country:Clientdata.country,
+              // ratings:Clientdata.ratings,
+              // total_read:Clientdata.total_read,
+              added_date:Clientdata.added_date,
+              hard_copy:Clientdata.hard_copy,
+              pdf:Clientdata.pdf,
+              ebook:Clientdata.ebook,
+              pdf_link:Clientdata.pdf_link,
+           
+
+          }
+        }
+      const result = await bookCollection.updateOne(filter,updatetoydata)
+      res.send(result)
+  })
+
+
+// ------------------Delete-----------------------//
+    app.delete('/books/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await bookCollection.deleteOne(query)
+      res.send(result)
+  })
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
