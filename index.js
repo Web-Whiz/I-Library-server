@@ -69,7 +69,7 @@ async function run() {
         };
         return orderedItem;
       });
-      console.log(orderedBooks);
+      // console.log(orderedBooks);
       const tran_id = new ObjectId().toString();
 
       const data = {
@@ -123,7 +123,7 @@ async function run() {
       });
 
       app.post("/payment/success/:tranId", async (req, res) => {
-        // console.log(req.params.tranId)
+        console.log(req.params.tranId)
         const result = await ordersCollection.updateOne(
           { transactionId: req.params.tranId },
           {
