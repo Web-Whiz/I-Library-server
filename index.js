@@ -96,6 +96,19 @@ async function run() {
         res.status(500).send("An error occurred.");
       }
     });
+    app.get("/books/category-filter", async (req, res) => {
+      const categoryNames = req.query.categories.split(",");
+      console.log(categoryNames);
+      const query = { category: { $in: categoryNames } };
+
+      try {
+        const books = await bookCollection.find(query).toArray();
+        res.send(books);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send("An error occurred.");
+      }
+    });
     app.get("/books/author", async (req, res) => {
       try {
         const projection = {
@@ -117,6 +130,19 @@ async function run() {
         });
 
         res.send(authorCounts);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send("An error occurred.");
+      }
+    });
+
+    app.get("/books/author-filter", async (req, res) => {
+      const authorNames = req.query.authors.split(",");
+      const query = { author: { $in: authorNames } };
+
+      try {
+        const books = await bookCollection.find(query).toArray();
+        res.send(books);
       } catch (error) {
         console.error("Error:", error);
         res.status(500).send("An error occurred.");
@@ -147,44 +173,6 @@ async function run() {
         });
 
         res.send(publisherCounts);
-      } catch (error) {
-        console.error("Error:", error);
-        res.status(500).send("An error occurred.");
-      }
-    });
-
-    app.get("/books/category-filter", async (req, res) => {
-      const categoryNames = req.query.categories.split(","); // Split categories by comma
-      const query = { category: { $in: categoryNames } };
-
-      try {
-        const books = await bookCollection.find(query).toArray();
-        res.send(books);
-      } catch (error) {
-        console.error("Error:", error);
-        res.status(500).send("An error occurred.");
-      }
-    });
-
-    app.get("/books/author/:authorName", async (req, res) => {
-      const authorName = req.params.authorName;
-      const query = { author: authorName };
-
-      try {
-        const books = await bookCollection.find(query).toArray();
-        res.send(books);
-      } catch (error) {
-        console.error("Error:", error);
-        res.status(500).send("An error occurred.");
-      }
-    });
-    app.get("/books/publisher/:publisherName", async (req, res) => {
-      const publisherName = req.params.publisherName;
-      const query = { publisher: publisherName };
-
-      try {
-        const books = await bookCollection.find(query).toArray();
-        res.send(books);
       } catch (error) {
         console.error("Error:", error);
         res.status(500).send("An error occurred.");
