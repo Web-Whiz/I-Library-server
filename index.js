@@ -39,6 +39,7 @@ async function run() {
       .db("i-library")
       .collection("allBlogsCollection");
     const reviewCollection = client.db("i-library").collection("reviews");
+    const QACollection = client.db("i-library").collection("qa");
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
@@ -289,6 +290,14 @@ async function run() {
       res.send(result);
     });
 
+    // Ratings & Reviews Related API
+    app.get("/review/:id", async(req, res) => {
+      const id = req.params.id;
+      const filter = { "book-id" : id };
+      const reviews = await reviewCollection.find(filter).toArray();
+      res.send(reviews);
+    })
+
     app.get("/reviews/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
@@ -309,6 +318,65 @@ async function run() {
 
       res.send([result1, result2]);
     });
+    app.post('/reviews', async (req, res) => {
+      const { username, rating, review, date, bookTitle, bookImg, bookId, email } = req.body;
+      // console.log(req.body);
+
+      try {
+          // Insert the new review
+          await reviewCollection.insertOne({
+            username,
+            rating,
+            review,
+            date,
+            "book-name": bookTitle,
+          "book-img": bookImg,
+          "book-id": bookId,
+            email
+          });
+          console.log('Review inserted successfully');
+
+          res.status(201).json({ message: 'Review submitted successfully!' });
+      } catch (error) {
+          console.error('Error:', error);
+          res.status(500).json({ message: 'Failed to submit review.' });
+      }
+  });
+
+  // Book Questions & Answers Related API
+  app.get("/qa/:id", async(req, res) => {
+    const id = req.params.id;
+    const filter = { "book-id" : id };
+    const qa = await QACollection.find(filter).toArray();
+    res.send(qa);
+  })
+
+  app.post('/qa', async (req, res) => {
+    const { username, question, date, bookTitle, bookImg, bookId, email } = req.body;
+    // console.log(req.body);
+
+    try {
+        // Insert the new QA
+        await QACollection.insertOne({
+          username,
+          question,
+          'answer': "",
+          "answered-by": "",
+          "answered-date": "",
+          date,
+          "book-name": bookTitle,
+        "book-img": bookImg,
+        "book-id": bookId,
+          email
+        });
+        console.log('Question inserted successfully');
+
+        res.status(201).json({ message: 'Question submitted successfully!' });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ message: 'Failed to submit question.' });
+    }
+});
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
