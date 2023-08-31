@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
+
+const SSLCommerzPayment = require("sslcommerz-lts");
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -27,6 +29,10 @@ const client = new MongoClient(uri, {
   },
 });
 
+const store_id = process.env.STORE_ID;
+const store_passwd = process.env.STORE_PASSWORD;
+const is_live = false; //true for live, false for sandbox
+
 async function run() {
   try {
     const bookCollection = client.db("i-library").collection("books");
@@ -40,6 +46,9 @@ async function run() {
       .collection("allBlogsCollection");
     const reviewCollection = client.db("i-library").collection("reviews");
     const QACollection = client.db("i-library").collection("qa");
+    const ordersCollection = client.db("i-library").collection("orders");
+    const usersCollection = client.db("i-library").collection("users");
+
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
@@ -80,6 +89,166 @@ async function run() {
         const uniqueCategories = [
           ...new Set(result.map((book) => book.category)),
         ];
+        //payment Route
+        // ToDo: have to receive data from front-end
+        app.post("/order", async (req, res) => {
+
+          const mail = "muhammadformaanali@gmail.com";
+
+          const result = await cartsCollection
+            .find({ userEmail: mail })
+            .toArray();
+
+          const orderedBooks = result.map((book) => {
+            const { bookId, title, author, image_url } = book;
+            const orderedItem = {
+              title,
+              bookId,
+              author,
+              image_url,
+            };
+            return orderedItem;
+          });
+          // console.log(orderedBooks);
+          const tran_id = new ObjectId().toString();
+
+          const data = {
+            total_amount: 100,
+            currency: "BDT",
+            tran_id: tran_id, // use unique tran_id for each api call
+            success_url: `http://localhost:5000/payment/success/${tran_id}`,
+            fail_url: `http://localhost:5000/payment/failed/${tran_id}`,
+            cancel_url: "http://localhost:3030/cancel",
+            ipn_url: "http://localhost:3030/ipn",
+            shipping_method: "Courier",
+            product_name: "Computer.",
+            product_category: "Electronic",
+            product_profile: "general",
+            cus_name: "Customer Name",
+            cus_email: "customer@example.com",
+            cus_add1: "Dhaka",
+            cus_add2: "Dhaka",
+            cus_city: "Dhaka",
+            cus_state: "Dhaka",
+            cus_postcode: "1000",
+            cus_country: "Bangladesh",
+            cus_phone: "01711111111",
+            cus_fax: "01711111111",
+            ship_name: "Customer Name",
+            ship_add1: "Dhaka",
+            ship_add2: "Dhaka",
+            ship_city: "Dhaka",
+            ship_state: "Dhaka",
+            ship_postcode: 1000,
+            ship_country: "Bangladesh",
+          };
+
+          // console.log(data)
+
+          const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+          sslcz.init(data).then((apiResponse) => {
+            // Redirect the user to payment gateway
+            let GatewayPageURL = apiResponse.GatewayPageURL;
+            res.send({ url: GatewayPageURL });
+
+            const finalOrder = {
+              mail,
+              orderedBooks,
+              paidStatus: "unpaid",
+              transactionId: tran_id,
+            };
+
+            const result = ordersCollection.insertOne(finalOrder);
+          });
+
+          app.post("/payment/success/:tranId", async (req, res) => {
+            const result = await ordersCollection.updateOne(
+              { transactionId: req.params.tranId },
+              {
+                $set: {
+                  paidStatus: "paid",
+                },
+              }
+            );
+            if (result.modifiedCount > 0) {
+              const deleteCart = await cartsCollection.deleteMany({
+                userEmail: mail,
+              });
+              res.redirect(
+                "http://localhost:3000/dashboard/cart/payment-success"
+              );
+            }
+          });
+
+          app.post("/payment/failed/:tranId", async (req, res) => {
+            // console.log(req.params.tranId)
+            const result = await ordersCollection.deleteOne({
+              transactionId: req.params.tranId,
+            });
+            if (result.deletedCount > 0) {
+              res.redirect(
+                "http://localhost:3000/dashboard/cart/payment-failed"
+              );
+            }
+          });
+        });
+
+        // route for get all users data
+        app.get("/users", async (req, res) => {
+          const result = await usersCollection.find().toArray();
+          res.send(result);
+        });
+
+        // Route for update user role
+        app.put("/users/update-role/:userId", async (req, res) => {
+          const { userId } = req.params;
+          const { updatedRole } = req.body;
+          const query = { _id: new ObjectId(userId) };
+          const option = { upsert: true };
+          const updateOperation = {
+            $set: { role: updatedRole },
+          };
+          const updateResult = await usersCollection.updateOne(
+            query,
+            updateOperation,
+            option
+          );
+          res.send(updateResult);
+        });
+
+        // Route for update status
+        app.put("/users/update-status/:userId", async (req, res) => {
+          const { userId } = req.params;
+          const { updatedStatus } = req.body;
+          const query = { _id: new ObjectId(userId) };
+          const option = { upsert: true };
+          const updateOperation = {
+            $set: { status: updatedStatus },
+          };
+          const updateResult = await usersCollection.updateOne(
+            query,
+            updateOperation,
+            option
+          );
+          res.send(updateResult);
+        });
+
+        // route for warning
+        app.put("/users/warning/:userId", async (req, res) => {
+          const { userId } = req.params;
+          const { warning } = req.body;
+          const query = { _id: new ObjectId(userId) };
+          const option = { upsert: true };
+          const updateOperation = {
+            $set: { warning: warning },
+          };
+          const updateResult = await usersCollection.updateOne(
+            query,
+            updateOperation,
+            option
+          );
+          res.send(updateResult);
+        });
 
         const categoryCounts = uniqueCategories.map((category) => {
           const count = result.filter(
@@ -99,7 +268,6 @@ async function run() {
     });
     app.get("/books/category-filter", async (req, res) => {
       const categoryNames = req.query.categories.split(",");
-      console.log(categoryNames);
       const query = { category: { $in: categoryNames } };
 
       try {
@@ -291,12 +459,12 @@ async function run() {
     });
 
     // Ratings & Reviews Related API
-    app.get("/review/:id", async(req, res) => {
+    app.get("/review/:id", async (req, res) => {
       const id = req.params.id;
-      const filter = { "book-id" : id };
+      const filter = { "book-id": id };
       const reviews = await reviewCollection.find(filter).toArray();
       res.send(reviews);
-    })
+    });
 
     app.get("/reviews/:email", async (req, res) => {
       const email = req.params.email;
@@ -318,65 +486,83 @@ async function run() {
 
       res.send([result1, result2]);
     });
-    app.post('/reviews', async (req, res) => {
-      const { username, rating, review, date, bookTitle, bookImg, bookId, email } = req.body;
+    app.post("/reviews", async (req, res) => {
+      const {
+        username,
+        rating,
+        review,
+        date,
+        bookTitle,
+        bookImg,
+        bookId,
+        email,
+      } = req.body;
       // console.log(req.body);
 
       try {
-          // Insert the new review
-          await reviewCollection.insertOne({
-            username,
-            rating,
-            review,
-            date,
-            "book-name": bookTitle,
+        // Insert the new review
+        await reviewCollection.insertOne({
+          username,
+          rating,
+          review,
+          date,
+          "book-name": bookTitle,
           "book-img": bookImg,
           "book-id": bookId,
-            email
-          });
-          console.log('Review inserted successfully');
+          email,
+        });
 
-          res.status(201).json({ message: 'Review submitted successfully!' });
+        res.status(201).json({ message: "Review submitted successfully!" });
       } catch (error) {
-          console.error('Error:', error);
-          res.status(500).json({ message: 'Failed to submit review.' });
+        console.error("Error:", error);
+        res.status(500).json({ message: "Failed to submit review." });
       }
-  });
+    });
 
-  // Book Questions & Answers Related API
-  app.get("/qa/:id", async(req, res) => {
-    const id = req.params.id;
-    const filter = { "book-id" : id };
-    const qa = await QACollection.find(filter).toArray();
-    res.send(qa);
-  })
+    // Book Questions & Answers Related API
+    app.get("/qa/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { "book-id": id };
+      const qa = await QACollection.find(filter).toArray();
+      res.send(qa);
+    });
 
-  app.post('/qa', async (req, res) => {
-    const { username, question, date, bookTitle, bookImg, bookId, email } = req.body;
-    // console.log(req.body);
+    app.post("/qa", async (req, res) => {
+      const { username, question, date, bookTitle, bookImg, bookId, email } =
+        req.body;
+      // console.log(req.body);
 
-    try {
+      try {
         // Insert the new QA
         await QACollection.insertOne({
           username,
           question,
-          'answer': "",
+          answer: "",
           "answered-by": "",
           "answered-date": "",
           date,
           "book-name": bookTitle,
-        "book-img": bookImg,
-        "book-id": bookId,
-          email
+          "book-img": bookImg,
+          "book-id": bookId,
+          email,
         });
-        console.log('Question inserted successfully');
 
-        res.status(201).json({ message: 'Question submitted successfully!' });
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ message: 'Failed to submit question.' });
-    }
-});
+        res.status(201).json({ message: "Question submitted successfully!" });
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ message: "Failed to submit question." });
+      }
+      res.send(result);
+    });
+
+    //api for DELETE items from wish list
+    app.delete("/wish-list", async (req, res) => {
+      const wishList = req.body;
+      // console.log(wishList)
+      const query = { userEmail: wishList.userEmail, bookId: wishList.bookId };
+      const result = await wishListCollection.deleteOne(query);
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
