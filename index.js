@@ -97,6 +97,7 @@ async function run() {
         // ToDo: have to receive data from front-end
         app.post("/order", async (req, res) => {
           const mail = "muhammadformaanali@gmail.com";
+          console.log(mail);
 
           const result = await cartsCollection
             .find({ userEmail: mail })
@@ -401,8 +402,12 @@ async function run() {
     });
     app.patch("/book-shelf", async (req, res) => {
       const id = req.query.id;
+      const shelfName = req.body; 
       const filter = { _id: new ObjectId(id) };
-      
+      const option = { upsert: false };
+      const updateOperation = {
+        $set: { shelfName: updatedRole },
+      };
     });
     app.delete("/book-shelf", async (req, res) => {
       const id = req.query.id;
