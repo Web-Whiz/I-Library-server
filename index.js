@@ -54,9 +54,13 @@ async function run() {
     app.post("/order", async (req, res) => {
       console.log(req.body);
 
-      const mail = "muhammadformaanali@gmail.com";
+      const {name, email, borrowDate,duration,returnDate,shippingAddress} = req.body
+      // console.log(email)
 
-      const result = await cartsCollection.find({ userEmail: mail }).toArray();
+
+      name, email, borrowDate,duration,returnDate,shippingAddress
+
+      const result = await cartsCollection.find({ userEmail: email }).toArray();
       console.log(result);
 
       const orderedBooks = result.map((book) => {
@@ -112,7 +116,12 @@ async function run() {
         res.send({ url: GatewayPageURL });
 
         const finalOrder = {
-          mail,
+          name,
+          email,
+          borrowDate,
+          duration,
+          returnDate,
+          shippingAddress,
           orderedBooks,
           paidStatus: "unpaid",
           transactionId: tran_id,
@@ -134,9 +143,9 @@ async function run() {
         );
         if (result.modifiedCount > 0) {
           const deleteCart = await cartsCollection.deleteMany({
-            userEmail: mail,
+            userEmail: email,
           });
-          res.redirect("http://localhost:3000/dashboard/cart/payment-success");
+          res.redirect(`http://localhost:3000/dashboard/cart/payment-success/`); //${tran_id}
         }
       });
 
