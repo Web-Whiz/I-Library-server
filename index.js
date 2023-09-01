@@ -128,11 +128,9 @@ async function run() {
         };
 
         const result = ordersCollection.insertOne(finalOrder);
-        console.log("Redirecting to: ", GatewayPageURL);
       });
 
       app.post("/payment/success/:tranId", async (req, res) => {
-        console.log(req.params.tranId)
         const result = await ordersCollection.updateOne(
           { transactionId: req.params.tranId },
           {
@@ -159,6 +157,7 @@ async function run() {
         }
       });
     });
+
 
     // route for get all users data
     app.get("/users", async (req, res) => {
