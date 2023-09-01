@@ -48,7 +48,7 @@ async function run() {
     const QACollection = client.db("i-library").collection("qa");
     const ordersCollection = client.db("i-library").collection("orders");
     const usersCollection = client.db("i-library").collection("users");
-   
+
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
@@ -523,6 +523,11 @@ async function run() {
     });
 
     // Book Questions & Answers Related API
+    app.get("/qa", async(req, res) => {
+      const result = await QACollection.find().toArray();
+      res.send(result);
+    });
+
     app.get("/qa/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { "book-id": id };
@@ -557,6 +562,22 @@ async function run() {
       }
       res.send(result);
     });
+
+    app.patch("/qa/:id", async (req, res) => {
+      const id = req.params.id;
+      const data= req.body;
+      const filter = { _id: new ObjectId(id) }
+      const options = { upsert: true };
+      const updateDoc ={
+          $set:{
+            answer: data.answer,
+            "answered-by": data.name,
+            "answered-date": data.date,
+          }
+        }
+      const result = await QACollection.updateOne(filter,updateDoc, options);
+      res.send(result)
+  })
 
     //api for DELETE items from wish list
     app.delete("/wish-list", async (req, res) => {
@@ -616,7 +637,7 @@ async function run() {
               pdf:Clientdata.pdf,
               ebook:Clientdata.ebook,
               pdf_link:Clientdata.pdf_link,
-           
+
 
           }
         }
