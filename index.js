@@ -73,9 +73,9 @@ async function run() {
     // ToDo: have to receive data from front-end
     app.post("/order", async (req, res) => {
       // console.log(req.body);
-    
 
-      const {name, email, borrowDate,duration,returnDate,shippingAddress} = req.body
+      const { name, email, borrowDate, duration, returnDate, shippingAddress } =
+        req.body;
       // console.log(email)
 
       const result = await cartsCollection.find({ userEmail: email }).toArray();
@@ -409,8 +409,14 @@ async function run() {
       const filter = { _id: new ObjectId(id) };
       const option = { upsert: false };
       const updateOperation = {
-        $set: { shelfName: updatedRole },
+        $set: { shelfName: shelfName.shelfName },
       };
+      const result = await bookShelfCollection.updateOne(
+        filter,
+        updateOperation,
+        option
+      );
+      res.send(result);
     });
     app.delete("/book-shelf", async (req, res) => {
       const id = req.query.id;
