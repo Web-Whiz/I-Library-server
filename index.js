@@ -48,6 +48,7 @@ async function run() {
     const QACollection = client.db("i-library").collection("qa");
     const ordersCollection = client.db("i-library").collection("orders");
     const usersCollection = client.db("i-library").collection("users");
+    const authorCollection = client.db("i-library").collection("authors");
 
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
@@ -350,6 +351,18 @@ async function run() {
         res.status(500).send("An error occurred.");
       }
     });
+    app.get("/books/publisher-filter", async (req, res) => {
+      const publisherNames = req.query.publishers.split(",");
+      const query = { publisher: { $in: publisherNames } };
+
+      try {
+        const books = await bookCollection.find(query).toArray();
+        res.send(books);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send("An error occurred.");
+      }
+    });
 
     // requested books
     app.get("/requested-books", async (req, res) => {
@@ -460,6 +473,19 @@ async function run() {
       const result = await wishListCollection.deleteOne(query);
       res.send(result);
     });
+
+    // Authors API
+    app.get('/authors', async(req, res) => {
+      const authors = await authorCollection.find().toArray();
+      res.send(authors)
+    })
+
+    app.get("/author/:id", async(req, res) => {
+      const id = req.params.id;
+      const filter = {_id: new ObjectId(id)};
+      const author = await authorCollection.findOne(filter)
+      res.send(author);
+    })
 
     // Ratings & Reviews Related API
     app.get("/review/:id", async (req, res) => {
