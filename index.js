@@ -98,8 +98,8 @@ async function run() {
         total_amount: 100,
         currency: "BDT",
         tran_id: tran_id, // use unique tran_id for each api call
-        success_url: `http://localhost:5000/payment/success/${tran_id}`,
-        fail_url: `http://localhost:5000/payment/failed/${tran_id}`,
+        success_url: `https://i-library-server-seven.vercel.app/payment/success/${tran_id}`,
+        fail_url: `https://i-library-server-seven.vercel.app/payment/failed/${tran_id}`,
         cancel_url: "http://localhost:3030/cancel",
         ipn_url: "http://localhost:3030/ipn",
         shipping_method: "Courier",
@@ -161,7 +161,7 @@ async function run() {
           const deleteCart = await cartsCollection.deleteMany({
             userEmail: email,
           });
-          res.redirect(`http://localhost:3000/dashboard/cart/payment-success/`); //${tran_id}
+          res.redirect(`https://i-library-nine.vercel.app/dashboard/cart/payment-success/`); //${tran_id}
         }
       });
 
@@ -171,7 +171,7 @@ async function run() {
           transactionId: req.params.tranId,
         });
         if (result.deletedCount > 0) {
-          res.redirect("http://localhost:3000/dashboard/cart/payment-failed");
+          res.redirect("https://i-library-nine.vercel.app/dashboard/cart/payment-failed");
         }
       });
     });
@@ -498,8 +498,7 @@ async function run() {
       res.send(result);
     });
 
-    // wish list related api
-
+  
     // wish list related api
     //api for add items in wish list
     app.post("/wish-list", async (req, res) => {
@@ -530,6 +529,19 @@ async function run() {
       const result = await wishListCollection.deleteOne(query);
       res.send(result);
     });
+
+
+    //api for get orders list
+    app.get("/my-orders", async (req, res) => {
+      const { email } = req.query;
+      // const email = 'muhammadformaanali@gmail.com'
+      const query = { email: email };
+      const result = await ordersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+
 
     // Ratings & Reviews Related API
     app.get("/review/:id", async (req, res) => {
