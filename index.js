@@ -36,7 +36,7 @@ const is_live = false; //true for live, false for sandbox
 async function run() {
   try {
     const bookCollection = client.db("i-library").collection("books");
-    const userCollection = client.db("i-library").collection("users");
+    // const userCollection = client.db("i-library").collection("users");
     const requestedBooks = client.db("i-library").collection("requested-books");
     const cartsCollection = client.db("i-library").collection("carts");
     const wishListCollection = client.db("i-library").collection("wishList");
@@ -69,12 +69,25 @@ async function run() {
       const result = await userCollection.insertOne(user);
       return res.send(result);
     });
+
+//api for get user Role
+app.get("/user-role", async (req, res) => {
+  const { email } = req.query;
+  console.log(email)
+  const query = { email:email };
+  const options = {
+    projection : { _id: 0, role: 1}
+  };
+  const role = await usersCollection.findOne(query,options);
+
+  return res.send(role);
+});
+
+
     //payment Route
     // ToDo: have to receive data from front-end
     app.post("/order", async (req, res) => {
       // console.log(req.body);
-    
-
       const {name, email, borrowDate,duration,returnDate,shippingAddress} = req.body
       // console.log(email)
 
@@ -181,6 +194,10 @@ async function run() {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
+
+    //dashboard
+
+
 
     // Route for update user role
     app.put("/users/update-role/:userId", async (req, res) => {
