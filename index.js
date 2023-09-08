@@ -61,12 +61,12 @@ async function run() {
       const user = req.body;
 
       const query = { email: user.email };
-      const existingUser = await userCollection.findOne(query);
+      const existingUser = await usersCollection.findOne(query);
 
       if (existingUser) {
         return res.send({ message: "user already exists" });
       }
-      const result = await userCollection.insertOne(user);
+      const result = await usersCollection.insertOne(user);
       return res.send(result);
     });
 
@@ -195,7 +195,13 @@ app.get("/user-role", async (req, res) => {
       res.send(result);
     });
 
-    //dashboard
+    //dashboard api 
+    app.get("/dashboard-home", async (req, res) => {
+      const allUsers = await usersCollection.find().toArray();
+      const allBooks = await bookCollection.find().toArray()
+
+      res.send({totalBooks:allBooks.length,totalUsers:allUsers.length})
+    });
 
 
 
