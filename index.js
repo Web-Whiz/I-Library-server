@@ -49,6 +49,7 @@ async function run() {
     const QACollection = client.db("i-library").collection("qa");
     const ordersCollection = client.db("i-library").collection("orders");
     const usersCollection = client.db("i-library").collection("users");
+    const authorCollection = client.db("i-library").collection("authors");
 
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
@@ -70,27 +71,26 @@ async function run() {
       return res.send(result);
     });
 
-//api for get user Role
-app.get("/user-role", async (req, res) => {
-  const { email } = req.query;
-  console.log(email)
-  const query = { email:email };
-  const options = {
-    projection : { _id: 0, role: 1}
-  };
-  const role = await usersCollection.findOne(query,options);
+    //api for get user Role
+    app.get("/user-role", async (req, res) => {
+      const { email } = req.query;
+      console.log(email);
+      const query = { email: email };
+      const options = {
+        projection: { _id: 0, role: 1 },
+      };
+      const role = await usersCollection.findOne(query, options);
 
-  return res.send(role);
-});
-
+      return res.send(role);
+    });
 
     //payment Route
     // ToDo: have to receive data from front-end
     app.post("/order", async (req, res) => {
       // console.log(req.body);
-      const {name, email, borrowDate,duration,returnDate,shippingAddress} = req.body
+      const { name, email, borrowDate, duration, returnDate, shippingAddress } =
+        req.body;
       // console.log(email)
-
       const result = await cartsCollection.find({ userEmail: email }).toArray();
       console.log(result);
 
@@ -156,6 +156,7 @@ app.get("/user-role", async (req, res) => {
           orderedBooks,
           paidStatus: "unpaid",
           transactionId: tran_id,
+          orderStatus: "pending",
         };
 
         const result = ordersCollection.insertOne(finalOrder);
@@ -174,7 +175,9 @@ app.get("/user-role", async (req, res) => {
           const deleteCart = await cartsCollection.deleteMany({
             userEmail: email,
           });
-          res.redirect(`https://i-library-nine.vercel.app/dashboard/cart/payment-success/`); //${tran_id}
+          res.redirect(
+            `https://i-library-nine.vercel.app/dashboard/cart/payment-success/`
+          ); //${tran_id}
         }
       });
 
@@ -184,7 +187,9 @@ app.get("/user-role", async (req, res) => {
           transactionId: req.params.tranId,
         });
         if (result.deletedCount > 0) {
-          res.redirect("https://i-library-nine.vercel.app/dashboard/cart/payment-failed");
+          res.redirect(
+            "https://i-library-nine.vercel.app/dashboard/cart/payment-failed"
+          );
         }
       });
     });
@@ -195,15 +200,13 @@ app.get("/user-role", async (req, res) => {
       res.send(result);
     });
 
-    //dashboard api 
+    //dashboard api
     app.get("/dashboard-home", async (req, res) => {
       const allUsers = await usersCollection.find().toArray();
-      const allBooks = await bookCollection.find().toArray()
+      const allBooks = await bookCollection.find().toArray();
 
-      res.send({totalBooks:allBooks.length,totalUsers:allUsers.length})
+      res.send({ totalBooks: allBooks.length, totalUsers: allUsers.length });
     });
-
-
 
     // Route for update user role
     app.put("/users/update-role/:userId", async (req, res) => {
@@ -553,16 +556,33 @@ app.get("/user-role", async (req, res) => {
       res.send(result);
     });
 
-
-    //api for get orders list
+    //api for get orders list (user dashboard)
     app.get("/my-orders", async (req, res) => {
       const { email } = req.query;
       // const email = 'muhammadformaanali@gmail.com'
       const query = { email: email };
       const result = await ordersCollection.find(query).toArray();
+      const orders = result.filter((order) => order?.orderStatus === "pending");
+      res.send(orders);
+    });
+
+    //api for get user orders history (user dashboard)
+    app.get("/orders-history", async (req, res) => {
+      const { email } = req.query;
+      const query = { email: email };
+      const result = await ordersCollection.find(query).toArray();
       res.send(result);
     });
 
+
+    //api for get user single order details (user dashboard)
+    app.get("/order-details/:id", async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = await ordersCollection.findOne(query)
+      console.log(typeof(id))
+      res.send(result);
+    });
 
 
 
