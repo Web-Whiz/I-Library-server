@@ -509,7 +509,7 @@ async function run() {
       const query = { userEmail: cart.userEmail, bookId: cart.bookId };
       const alreadyAdded = await cartsCollection.findOne(query);
       if (alreadyAdded) {
-        return res.send({ message: "already added" });
+        return res.send({ message: "Already added" });
       }
       const result = await cartsCollection.insertOne(cart);
       res.send(result);
@@ -524,7 +524,6 @@ async function run() {
       res.send(result);
     });
 
-  
     // wish list related api
     //api for add items in wish list
     app.post("/wish-list", async (req, res) => {
@@ -566,6 +565,30 @@ async function run() {
       res.send(orders);
     });
 
+    //api for get all orders  (admin dashboard)
+    app.get("/all-orders", async (req, res) => {
+      const result = await ordersCollection.find().toArray();
+      res.send(result);
+    });
+
+    // api for update order status
+    app.put("/update-order-status/:orderId", async (req, res) => {
+      const { orderId } = req.params;
+      const { selectedStatus } = req.body;
+      // console.log(orderId, selectedStatus)
+      const query = { _id: new ObjectId(orderId) };
+      const option = { upsert: true };
+      const updateOperation = {
+        $set: { orderStatus: selectedStatus },
+      };
+      const updateResult = await ordersCollection.updateOne(
+        query,
+        updateOperation,
+        option
+      );
+      res.send(updateResult);
+    });
+
     //api for get user orders history (user dashboard)
     app.get("/orders-history", async (req, res) => {
       const { email } = req.query;
@@ -574,19 +597,64 @@ async function run() {
       res.send(result);
     });
 
-
     //api for get user single order details (user dashboard)
     app.get("/order-details/:id", async (req, res) => {
       const { id } = req.params;
       const query = { _id: new ObjectId(id) };
-      const result = await ordersCollection.findOne(query)
-      console.log(typeof(id))
+      const result = await ordersCollection.findOne(query);
+      console.log(typeof id);
       res.send(result);
+    });
+
+    // api for get added books per day within last seven days
+    app.get("/books/new-added", async (req, res) => {
+      try {
+        const currentDate = new Date();
+        const sevenDaysAgo = new Date(currentDate);
+        sevenDaysAgo.setDate(currentDate.getDate() - 7);
+        const allBooks = await bookCollection.find({}).toArray();
+        const bookCountsPerDay = [];
+        const daysWithinLastSevenDays = [];
+        for (let i = 0; i < 7; i++) {
+          const day = new Date(sevenDaysAgo);
+          day.setDate(sevenDaysAgo.getDate() + i);
+          daysWithinLastSevenDays.push(day);
+        }
+        daysWithinLastSevenDays.forEach((day) => {
+          const dayName = new Intl.DateTimeFormat("en-US", {
+            weekday: "long",
+          }).format(day);
+          const dayCount = allBooks.filter((book) => {
+            const addedDate = new Date(book.added_date);
+            return (
+              addedDate.toISOString().substr(0, 10) ===
+              day.toISOString().substr(0, 10)
+            );
+          }).length;
+
+          bookCountsPerDay.push({
+            date: day.toISOString().substr(0, 10),
+            dayName,
+            count: dayCount,
+          });
+        });
+
+        console.log(
+          "Books added per day in the last seven days:",
+          bookCountsPerDay
+        );
+
+        res.json(bookCountsPerDay);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+      }
     });
 
 
 
-    // Ratings & Reviews Related API
+
+
     app.get("/review/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { "book-id": id };
