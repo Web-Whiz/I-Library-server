@@ -36,11 +36,12 @@ const is_live = false; //true for live, false for sandbox
 async function run() {
   try {
     const bookCollection = client.db("i-library").collection("books");
-    const userCollection = client.db("i-library").collection("users");
+    // const userCollection = client.db("i-library").collection("users");
     const requestedBooks = client.db("i-library").collection("requested-books");
     const cartsCollection = client.db("i-library").collection("carts");
     const wishListCollection = client.db("i-library").collection("wishList");
     const donatedBooks = client.db("i-library").collection("donated-books");
+    const bookShelfCollection = client.db("i-library").collection("bookShelf");
     const allBlogsCollection = client
       .db("i-library")
       .collection("allBlogsCollection");
@@ -61,13 +62,201 @@ async function run() {
       const user = req.body;
 
       const query = { email: user.email };
-      const existingUser = await userCollection.findOne(query);
+      const existingUser = await usersCollection.findOne(query);
 
       if (existingUser) {
         return res.send({ message: "user already exists" });
       }
-      const result = await userCollection.insertOne(user);
+      const result = await usersCollection.insertOne(user);
       return res.send(result);
+    });
+
+    //api for get user Role
+    app.get("/user-role", async (req, res) => {
+      const { email } = req.query;
+      console.log(email);
+      const query = { email: email };
+      const options = {
+        projection: { _id: 0, role: 1 },
+      };
+      const role = await usersCollection.findOne(query, options);
+
+      return res.send(role);
+    });
+
+    //payment Route
+    // ToDo: have to receive data from front-end
+    app.post("/order", async (req, res) => {
+      // console.log(req.body);
+      const { name, email, borrowDate, duration, returnDate, shippingAddress } =
+        req.body;
+      // console.log(email)
+      const result = await cartsCollection.find({ userEmail: email }).toArray();
+      console.log(result);
+
+      const orderedBooks = result.map((book) => {
+        const { bookId, title, author, image_url } = book;
+        const orderedItem = {
+          title,
+          bookId,
+          author,
+          image_url,
+        };
+        return orderedItem;
+      });
+      // console.log(orderedBooks);
+      const tran_id = new ObjectId().toString();
+
+      const data = {
+        total_amount: 100,
+        currency: "BDT",
+        tran_id: tran_id, // use unique tran_id for each api call
+        success_url: `https://i-library-server-seven.vercel.app/payment/success/${tran_id}`,
+        fail_url: `https://i-library-server-seven.vercel.app/payment/failed/${tran_id}`,
+        cancel_url: "http://localhost:3030/cancel",
+        ipn_url: "http://localhost:3030/ipn",
+        shipping_method: "Courier",
+        product_name: "Computer.",
+        product_category: "Electronic",
+        product_profile: "general",
+        cus_name: "Customer Name",
+        cus_email: "customer@example.com",
+        cus_add1: "Dhaka",
+        cus_add2: "Dhaka",
+        cus_city: "Dhaka",
+        cus_state: "Dhaka",
+        cus_postcode: "1000",
+        cus_country: "Bangladesh",
+        cus_phone: "01711111111",
+        cus_fax: "01711111111",
+        ship_name: "Customer Name",
+        ship_add1: "Dhaka",
+        ship_add2: "Dhaka",
+        ship_city: "Dhaka",
+        ship_state: "Dhaka",
+        ship_postcode: 1000,
+        ship_country: "Bangladesh",
+      };
+
+      // console.log(data)
+
+      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
+      sslcz.init(data).then((apiResponse) => {
+        // Redirect the user to payment gateway
+        let GatewayPageURL = apiResponse.GatewayPageURL;
+        res.send({ url: GatewayPageURL });
+
+        const finalOrder = {
+          name,
+          email,
+          borrowDate,
+          duration,
+          returnDate,
+          shippingAddress,
+          orderedBooks,
+          paidStatus: "unpaid",
+          transactionId: tran_id,
+          orderStatus: "pending",
+        };
+
+        const result = ordersCollection.insertOne(finalOrder);
+      });
+
+      app.post("/payment/success/:tranId", async (req, res) => {
+        const result = await ordersCollection.updateOne(
+          { transactionId: req.params.tranId },
+          {
+            $set: {
+              paidStatus: "paid",
+            },
+          }
+        );
+        if (result.modifiedCount > 0) {
+          const deleteCart = await cartsCollection.deleteMany({
+            userEmail: email,
+          });
+          res.redirect(
+            `https://i-library-nine.vercel.app/dashboard/cart/payment-success/`
+          ); //${tran_id}
+        }
+      });
+
+      app.post("/payment/failed/:tranId", async (req, res) => {
+        // console.log(req.params.tranId)
+        const result = await ordersCollection.deleteOne({
+          transactionId: req.params.tranId,
+        });
+        if (result.deletedCount > 0) {
+          res.redirect(
+            "https://i-library-nine.vercel.app/dashboard/cart/payment-failed"
+          );
+        }
+      });
+    });
+
+    // route for get all users data
+    app.get("/users", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    //dashboard api
+    app.get("/dashboard-home", async (req, res) => {
+      const allUsers = await usersCollection.find().toArray();
+      const allBooks = await bookCollection.find().toArray();
+
+      res.send({ totalBooks: allBooks.length, totalUsers: allUsers.length });
+    });
+
+    // Route for update user role
+    app.put("/users/update-role/:userId", async (req, res) => {
+      const { userId } = req.params;
+      const { updatedRole } = req.body;
+      const query = { _id: new ObjectId(userId) };
+      const option = { upsert: true };
+      const updateOperation = {
+        $set: { role: updatedRole },
+      };
+      const updateResult = await usersCollection.updateOne(
+        query,
+        updateOperation,
+        option
+      );
+      res.send(updateResult);
+    });
+
+    // Route for update status
+    app.put("/users/update-status/:userId", async (req, res) => {
+      const { userId } = req.params;
+      const { updatedStatus } = req.body;
+      const query = { _id: new ObjectId(userId) };
+      const option = { upsert: true };
+      const updateOperation = {
+        $set: { status: updatedStatus },
+      };
+      const updateResult = await usersCollection.updateOne(
+        query,
+        updateOperation,
+        option
+      );
+      res.send(updateResult);
+    });
+
+    // route for warning
+    app.put("/users/warning/:userId", async (req, res) => {
+      const { userId } = req.params;
+      const { warning } = req.body;
+      const query = { _id: new ObjectId(userId) };
+      const option = { upsert: true };
+      const updateOperation = {
+        $set: { warning: warning },
+      };
+      const updateResult = await usersCollection.updateOne(
+        query,
+        updateOperation,
+        option
+      );
+      res.send(updateResult);
     });
     // book api
     app.get("/books", async (req, res) => {
@@ -93,166 +282,6 @@ async function run() {
         const uniqueCategories = [
           ...new Set(result.map((book) => book.category)),
         ];
-        //payment Route
-        // ToDo: have to receive data from front-end
-        app.post("/order", async (req, res) => {
-
-          const mail = "muhammadformaanali@gmail.com";
-
-          const result = await cartsCollection
-            .find({ userEmail: mail })
-            .toArray();
-
-          const orderedBooks = result.map((book) => {
-            const { bookId, title, author, image_url } = book;
-            const orderedItem = {
-              title,
-              bookId,
-              author,
-              image_url,
-            };
-            return orderedItem;
-          });
-          // console.log(orderedBooks);
-          const tran_id = new ObjectId().toString();
-
-          const data = {
-            total_amount: 100,
-            currency: "BDT",
-            tran_id: tran_id, // use unique tran_id for each api call
-            success_url: `http://localhost:5000/payment/success/${tran_id}`,
-            fail_url: `http://localhost:5000/payment/failed/${tran_id}`,
-            cancel_url: "http://localhost:3030/cancel",
-            ipn_url: "http://localhost:3030/ipn",
-            shipping_method: "Courier",
-            product_name: "Computer.",
-            product_category: "Electronic",
-            product_profile: "general",
-            cus_name: "Customer Name",
-            cus_email: "customer@example.com",
-            cus_add1: "Dhaka",
-            cus_add2: "Dhaka",
-            cus_city: "Dhaka",
-            cus_state: "Dhaka",
-            cus_postcode: "1000",
-            cus_country: "Bangladesh",
-            cus_phone: "01711111111",
-            cus_fax: "01711111111",
-            ship_name: "Customer Name",
-            ship_add1: "Dhaka",
-            ship_add2: "Dhaka",
-            ship_city: "Dhaka",
-            ship_state: "Dhaka",
-            ship_postcode: 1000,
-            ship_country: "Bangladesh",
-          };
-
-          // console.log(data)
-
-          const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
-          sslcz.init(data).then((apiResponse) => {
-            // Redirect the user to payment gateway
-            let GatewayPageURL = apiResponse.GatewayPageURL;
-            res.send({ url: GatewayPageURL });
-
-            const finalOrder = {
-              mail,
-              orderedBooks,
-              paidStatus: "unpaid",
-              transactionId: tran_id,
-            };
-
-            const result = ordersCollection.insertOne(finalOrder);
-          });
-
-          app.post("/payment/success/:tranId", async (req, res) => {
-            const result = await ordersCollection.updateOne(
-              { transactionId: req.params.tranId },
-              {
-                $set: {
-                  paidStatus: "paid",
-                },
-              }
-            );
-            if (result.modifiedCount > 0) {
-              const deleteCart = await cartsCollection.deleteMany({
-                userEmail: mail,
-              });
-              res.redirect(
-                "http://localhost:3000/dashboard/cart/payment-success"
-              );
-            }
-          });
-
-          app.post("/payment/failed/:tranId", async (req, res) => {
-            // console.log(req.params.tranId)
-            const result = await ordersCollection.deleteOne({
-              transactionId: req.params.tranId,
-            });
-            if (result.deletedCount > 0) {
-              res.redirect(
-                "http://localhost:3000/dashboard/cart/payment-failed"
-              );
-            }
-          });
-        });
-
-        // route for get all users data
-        app.get("/users", async (req, res) => {
-          const result = await usersCollection.find().toArray();
-          res.send(result);
-        });
-
-        // Route for update user role
-        app.put("/users/update-role/:userId", async (req, res) => {
-          const { userId } = req.params;
-          const { updatedRole } = req.body;
-          const query = { _id: new ObjectId(userId) };
-          const option = { upsert: true };
-          const updateOperation = {
-            $set: { role: updatedRole },
-          };
-          const updateResult = await usersCollection.updateOne(
-            query,
-            updateOperation,
-            option
-          );
-          res.send(updateResult);
-        });
-
-        // Route for update status
-        app.put("/users/update-status/:userId", async (req, res) => {
-          const { userId } = req.params;
-          const { updatedStatus } = req.body;
-          const query = { _id: new ObjectId(userId) };
-          const option = { upsert: true };
-          const updateOperation = {
-            $set: { status: updatedStatus },
-          };
-          const updateResult = await usersCollection.updateOne(
-            query,
-            updateOperation,
-            option
-          );
-          res.send(updateResult);
-        });
-
-        // route for warning
-        app.put("/users/warning/:userId", async (req, res) => {
-          const { userId } = req.params;
-          const { warning } = req.body;
-          const query = { _id: new ObjectId(userId) };
-          const option = { upsert: true };
-          const updateOperation = {
-            $set: { warning: warning },
-          };
-          const updateResult = await usersCollection.updateOne(
-            query,
-            updateOperation,
-            option
-          );
-          res.send(updateResult);
-        });
 
         const categoryCounts = uniqueCategories.map((category) => {
           const count = result.filter(
@@ -363,6 +392,72 @@ async function run() {
         res.status(500).send("An error occurred.");
       }
     });
+    // Book shelf API
+    app.get("/book-shelf", async (req, res) => {
+      const email = req.query.email;
+      const result = await bookShelfCollection.find({ email: email }).toArray();
+      res.send(result);
+    });
+
+    app.get("/book-shelf/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await bookShelfCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
+
+    app.post("/book-shelf", async (req, res) => {
+      const book = req.body;
+      const newBook = {
+        bookId: book.bookId,
+        bookTitle: book.bookTitle,
+        bookImg: book.bookImg,
+        authorName: book.authorName,
+      };
+      const newShelf = {
+        shelfName: book.shelfName,
+        email: book.userEmail,
+        userName: book.c,
+        books: [newBook],
+      };
+      const filter = { shelfName: book.shelfName, email: book.userEmail };
+
+      try {
+        const existingShelf = await bookShelfCollection.findOne(filter);
+        if (existingShelf) {
+          const result = await bookShelfCollection.updateOne(filter, {
+            $push: { books: newBook },
+          });
+          res.json(result);
+        } else {
+          const result = await bookShelfCollection.insertOne(newShelf);
+          res.json(result);
+        }
+      } catch (error) {
+        console.error("Error adding book to shelf:", error);
+        res.status(500).json({
+          error: "An error occurred while adding the book to the shelf",
+        });
+      }
+    });
+    app.patch("/book-shelf", async (req, res) => {
+      const id = req.query.id;
+      const shelfName = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const option = { upsert: false };
+      const updateOperation = {
+        $set: { shelfName: updatedRole },
+      };
+    });
+    app.delete("/book-shelf", async (req, res) => {
+      const id = req.query.id;
+      const filter = { _id: new ObjectId(id) };
+      const result = await bookShelfCollection.deleteOne(filter);
+      res.send(result);
+    });
+
+    // Book shelf API
 
     // requested books
     app.get("/requested-books", async (req, res) => {
@@ -426,7 +521,7 @@ async function run() {
       const query = { userEmail: cart.userEmail, bookId: cart.bookId };
       const alreadyAdded = await cartsCollection.findOne(query);
       if (alreadyAdded) {
-        return res.send({ message: "already added" });
+        return res.send({ message: "Already added" });
       }
       const result = await cartsCollection.insertOne(cart);
       res.send(result);
@@ -440,8 +535,6 @@ async function run() {
       const result = await cartsCollection.deleteOne(query);
       res.send(result);
     });
-
-    // wish list related api
 
     // wish list related api
     //api for add items in wish list
@@ -488,6 +581,106 @@ async function run() {
     })
 
     // Ratings & Reviews Related API
+    //api for get orders list (user dashboard)
+    app.get("/my-orders", async (req, res) => {
+      const { email } = req.query;
+      // const email = 'muhammadformaanali@gmail.com'
+      const query = { email: email };
+      const result = await ordersCollection.find(query).toArray();
+      const orders = result.filter((order) => order?.orderStatus === "pending");
+      res.send(orders);
+    });
+
+    //api for get all orders  (admin dashboard)
+    app.get("/all-orders", async (req, res) => {
+      const result = await ordersCollection.find().toArray();
+      res.send(result);
+    });
+
+    // api for update order status
+    app.put("/update-order-status/:orderId", async (req, res) => {
+      const { orderId } = req.params;
+      const { selectedStatus } = req.body;
+      // console.log(orderId, selectedStatus)
+      const query = { _id: new ObjectId(orderId) };
+      const option = { upsert: true };
+      const updateOperation = {
+        $set: { orderStatus: selectedStatus },
+      };
+      const updateResult = await ordersCollection.updateOne(
+        query,
+        updateOperation,
+        option
+      );
+      res.send(updateResult);
+    });
+
+    //api for get user orders history (user dashboard)
+    app.get("/orders-history", async (req, res) => {
+      const { email } = req.query;
+      const query = { email: email };
+      const result = await ordersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    //api for get user single order details (user dashboard)
+    app.get("/order-details/:id", async (req, res) => {
+      const { id } = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = await ordersCollection.findOne(query);
+      console.log(typeof id);
+      res.send(result);
+    });
+
+    // api for get added books per day within last seven days
+    app.get("/books/new-added", async (req, res) => {
+      try {
+        const currentDate = new Date();
+        const sevenDaysAgo = new Date(currentDate);
+        sevenDaysAgo.setDate(currentDate.getDate() - 7);
+        const allBooks = await bookCollection.find({}).toArray();
+        const bookCountsPerDay = [];
+        const daysWithinLastSevenDays = [];
+        for (let i = 0; i < 7; i++) {
+          const day = new Date(sevenDaysAgo);
+          day.setDate(sevenDaysAgo.getDate() + i);
+          daysWithinLastSevenDays.push(day);
+        }
+        daysWithinLastSevenDays.forEach((day) => {
+          const dayName = new Intl.DateTimeFormat("en-US", {
+            weekday: "long",
+          }).format(day);
+          const dayCount = allBooks.filter((book) => {
+            const addedDate = new Date(book.added_date);
+            return (
+              addedDate.toISOString().substr(0, 10) ===
+              day.toISOString().substr(0, 10)
+            );
+          }).length;
+
+          bookCountsPerDay.push({
+            date: day.toISOString().substr(0, 10),
+            dayName,
+            count: dayCount,
+          });
+        });
+
+        console.log(
+          "Books added per day in the last seven days:",
+          bookCountsPerDay
+        );
+
+        res.json(bookCountsPerDay);
+      } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+      }
+    });
+
+
+
+
+
     app.get("/review/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { "book-id": id };
@@ -616,15 +809,10 @@ async function run() {
 
     // ------------------searchText-----------------------//
     app.post("/books", async (req, res) => {
-      const Addededbook=req.body
-      const result = await bookCollection.insertOne(Addededbook)
+      const Addededbook = req.body;
+      const result = await bookCollection.insertOne(Addededbook);
       res.send(result);
     });
-
-    // ------------------searchText-----------------------//
-    const indexKeys = { title: 1 };
-    const indexOptions = { name: "titlesearch" };
-    const result = await bookCollection.createIndex(indexKeys,indexOptions );
 
     app.get("/books/:text", async (req, res) => {
       const searchText = req.params.text;
@@ -636,7 +824,7 @@ async function run() {
       res.send(result);
     });
 
-// ------------------Update-----------------------//
+    // ------------------Update-----------------------//
 
     app.patch("/books/:id", async (req, res) => {
       const id = req.params.id;
@@ -671,16 +859,13 @@ async function run() {
       res.send(result)
   })
 
-
-// ------------------Delete-----------------------//
-    app.delete('/books/:id', async (req, res) => {
+    // ------------------Delete-----------------------//
+    app.delete("/books/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      const result = await bookCollection.deleteOne(query)
-      res.send(result)
-  })
-
-
+      const query = { _id: new ObjectId(id) };
+      const result = await bookCollection.deleteOne(query);
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
