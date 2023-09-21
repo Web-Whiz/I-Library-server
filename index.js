@@ -54,9 +54,6 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
-    // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
-
     // user api
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -718,6 +715,7 @@ async function run() {
         bookImg,
         bookId,
         email,
+        userPhoto
       } = req.body;
       // console.log(req.body);
 
@@ -732,6 +730,7 @@ async function run() {
           "book-img": bookImg,
           "book-id": bookId,
           email,
+          userPhoto
         });
 
         res.status(201).json({ message: "Review submitted successfully!" });
@@ -779,7 +778,6 @@ async function run() {
         console.error("Error:", error);
         res.status(500).json({ message: "Failed to submit question." });
       }
-      res.send(result);
     });
 
     app.patch("/qa/:id", async (req, res) => {
